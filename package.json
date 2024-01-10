@@ -4,7 +4,7 @@
   "description": "",
   "main": "app.ts",
   "scripts": {
-    "build": "./node_modules/.bin/tsc",
+    "build": "rm -rf dist && ./node_modules/.bin/tsc",
     "start:dev": "NODE_ENV=development tsc-watch --onSuccess \"node ./dist/app.js\"",
     "start:prod": "NODE_ENV=production node dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
