@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   service-db:
-    container_name: service-db
+    container_name: my-travel-db
     image: postgres:16.1-bookworm
     env_file:
       - .env
@@ -11,7 +11,7 @@ services:
       - .:/docker-entrypoint-initdb.d
       - mytravel-db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U taras -d mytravel-db']
+      test: ['CMD-SHELL', 'pg_isready -U taras -d my-travel']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,7 +26,7 @@ services:
       - mytravel-network
 
   service-be:
-    container_name: service-be
+    container_name: my-travel-be
     build:
       context: .
       dockerfile: Dockerfile
@@ -42,7 +42,7 @@ services:
       - mytravel-network
 
   pgadmin:
-    container_name: service-pgadmin
+    container_name: my-travel-pgadmin
     image: dpage/pgadmin4:7.2
     env_file:
       - .env
