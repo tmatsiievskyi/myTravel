@@ -3,6 +3,7 @@ import EventEmitter from 'events';
 import express, { Application } from 'express';
 
 import { PORT } from '../configs/env';
+import { logger } from '../configs/logger';
 import { IController } from '../interfaces';
 
 export class ExpressServer extends EventEmitter {
@@ -17,7 +18,7 @@ export class ExpressServer extends EventEmitter {
 
   public listen() {
     this.app.listen(PORT, () => {
-      console.log(`App listening on the port ${PORT}`);
+      logger.info(`App listening on the port ${PORT}`);
     });
   }
 }
