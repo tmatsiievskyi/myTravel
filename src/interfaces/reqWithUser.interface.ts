@@ -7,6 +7,6 @@ import { IURLParams } from './urlParams.interface';
 export interface IRequestWithUser extends Request {
   user: User;
   startTime: number;
-  userAgent?: { [key: string]: any };
+  userAgent: { [key: string]: any };
   searchParams?: IURLParams;
 }

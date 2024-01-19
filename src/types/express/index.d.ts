@@ -6,7 +6,7 @@ declare global {
     export interface Request {
       user: User;
       startTime: number;
-      userAgent?: { [key: string]: any };
+      userAgent: { [key: string]: any };
       searchParams?: IURLParams;
     }
   }
