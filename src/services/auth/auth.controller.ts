@@ -26,6 +26,11 @@ export class AuthController implements IController {
       addUserAgent,
       this.signUp
     );
+    this.router.post(
+      `${this.path}/verify/:token`,
+      addUserAgent,
+      this.verifyToken
+    );
   };
 
   private healthCheck = (req: Request, res: Response, next: NextFunction) => {
@@ -44,6 +49,19 @@ export class AuthController implements IController {
       res.send(this.fmt.formatResp(data, Date.now() - req.startTime, 'OK'));
     } catch (error) {
       console.log(error);
+      next(error);
+    }
+  };
+
+  private verifyToken = (
+    req: IRequestWithUser,
+    res: Response,
+    next: NextFunction
+  ) => {
+    const token = req.params.token;
+
+    try {
+    } catch (error) {
       next(error);
     }
   };

@@ -38,6 +38,7 @@ services:
       - ./src:/app/src
     depends_on:
       - service-db
+      - redis
     networks:
       - mytravel-network
 
@@ -59,9 +60,20 @@ services:
     networks:
       - mytravel-network
 
+  redis:
+    container_name: my-travel-redis
+    image: redis:7.2
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    networks:
+      - mytravel-network
+
 volumes:
   mytravel-db-data:
   pgadmin-data:
+  redis-data:
 networks:
   mytravel-network:
     driver: bridge

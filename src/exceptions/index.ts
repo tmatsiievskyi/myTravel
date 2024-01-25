@@ -5,3 +5,4 @@ export * from './UserNotAuthorized.exception';
 export * from './DuplicateRecord.exception';
 export * from './BadRequest.exception';
 export * from './RecordNotFound.exception';
+export * from './EmailDelivery.exception';

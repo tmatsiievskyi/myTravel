@@ -42,5 +42,9 @@ export const validateEnv = () => {
     REFRESH_TOKEN_PUBLIC_KEY: str(),
     ACCESS_TOKEN_EXPIRES: str(),
     REFRESH_TOKEN_EXPIRES: str(),
+    REDIS_HOST: str(),
+    REDIS_PORT: str(),
+    SENDGRID_API_KEY: str(),
+    EMAIL_FROM: str(),
   });
 };
