@@ -18,6 +18,7 @@ export class Formatter {
       errors = [result];
     } else if (result || result === 0) {
       numRecords = 1;
+      data = result;
     }
 
     const resp: IApiResp = {

@@ -21,6 +21,9 @@ const prodFormat = () => {
 
 const devFormat = () => {
   const formatMessage = (info: any) => {
+    if (typeof info.message === 'object') {
+      info.message = JSON.stringify(info.message, null, 4);
+    }
     return ` ${info.level}  ${info.message}`;
   };
   const formatError = (info: any) =>
