@@ -1,17 +1,18 @@
 import bcrypt from 'bcrypt';
 import jwt, { JwtPayload, SignOptions } from 'jsonwebtoken';
 
-import cache from '../configs/cache';
 import {
   ACCESS_TOKEN_EXPIRES,
-  ACCESS_TOKEN_PRIVATE_KEY,
   ACCESS_TOKEN_PUBLIC_KEY,
   APP_SECRET,
   REFRESH_TOKEN_EXPIRES,
   REFRESH_TOKEN_PUBLIC_KEY,
 } from '../configs/env';
 import { logger } from '../configs/logger';
-import { IJwtPayload, IRequestWithUser } from '../interfaces';
+import { IJwtPayload } from '../interfaces';
+
+import { addHashCache } from './cache.util';
+import { generateCookieOptions } from './cookie';
 
 type JwtSignPayload = Record<string, any>;
 
@@ -43,6 +44,15 @@ const createJwt = (
   options: SignOptions = {}
 ) => jwt.sign(payload, secret, options);
 
+export const verifyJwt = <T>(token: string, secret: string): T | null => {
+  try {
+    return jwt.verify(token, secret) as T;
+  } catch (error) {
+    logger.error(error);
+    return null;
+  }
+};
+
 export const createAuthJwts = async (data: IJwtPayload, userAgent: object) => {
   const access_token = createJwt(data, ACCESS_TOKEN_PUBLIC_KEY, {
     ...jwtOptionsInit,
@@ -54,9 +64,34 @@ export const createAuthJwts = async (data: IJwtPayload, userAgent: object) => {
     expiresIn: `${Number(REFRESH_TOKEN_EXPIRES) || 0}m`,
   });
 
-  await storeTokenInCache(refresh_token, { ...data, ...userAgent });
+  await addHashCache(
+    'AUTH_REFRESH_KEY',
+    refresh_token,
+    {
+      user_id: data.user_id,
+      refresh_token,
+      expiresIn: `${Number(REFRESH_TOKEN_EXPIRES) || 0}m`,
+      userAgent,
+    },
+    data.user_id
+  );
 
-  return { access_token, refresh_token };
+  return {
+    access: {
+      token: access_token,
+      options: generateCookieOptions(Number(ACCESS_TOKEN_EXPIRES), {
+        httpOnly: true,
+        sameSite: 'lax',
+      }),
+    },
+    refresh: {
+      token: refresh_token,
+      options: generateCookieOptions(Number(REFRESH_TOKEN_EXPIRES), {
+        httpOnly: true,
+        sameSite: 'lax',
+      }),
+    },
+  };
 };
 
 export const createEmailJwt = async (
@@ -70,22 +105,8 @@ export const createEmailJwt = async (
   };
   const jwt = createJwt(dataStoredInToken, APP_SECRET, {
     ...jwtOptionsInit,
-    expiresIn: '1h',
-  });
-  await storeTokenInCache(jwt, {
-    vendor: undefined,
-    model: undefined,
-    type: undefined,
+    expiresIn: expiresIn,
   });
 
   return jwt;
-};
-
-export const storeTokenInCache = async (token: string, data: object) => {
-  const success = false;
-  try {
-    cache.set(token, JSON.stringify(data));
-  } catch (error) {
-    logger.error(error);
-  }
 };

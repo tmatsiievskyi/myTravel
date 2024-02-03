@@ -6,3 +6,6 @@ export * from './DuplicateRecord.exception';
 export * from './BadRequest.exception';
 export * from './RecordNotFound.exception';
 export * from './EmailDelivery.exception';
+export * from './WrongAuthToken.exception';
+export * from './NotImplemented.exception';
+export * from './WrongCredentials.exception';
