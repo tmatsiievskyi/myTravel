@@ -54,3 +54,16 @@ export class CreateUserDto {
   @IsOptional()
   public ip: string;
 }
+
+export class LoginUserDto {
+  @IsEmail()
+  @IsDefined()
+  public email: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(24)
+  @NotContains(' ', { message: 'Space is not allowed' })
+  @IsDefined()
+  public password: string;
+}

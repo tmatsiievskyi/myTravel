@@ -5,21 +5,32 @@ import {
   MissingParamException,
   AllreadyExistsException,
   BadRequestException,
+  WrongAuthTokenException,
+  RecordNotFoundException,
+  NotImplementedException,
+  WrongCredentialsException,
 } from '../../exceptions';
-import { IDao } from '../../interfaces';
+import { AuthTokenExpiredException } from '../../exceptions/AuthTokenExpired.exception';
+import { IDao, IJwtPayload } from '../../interfaces';
 import {
+  AppError,
   TokenTypes,
+  addHashCache,
+  addSetCache,
   createAuthJwts,
   createEmailJwt,
+  deleteHashCache,
   hashPassword,
-  storeTokenInCache,
+  isInSetCache,
+  verifyJwt,
+  verifyPassword,
 } from '../../utils';
 import { Email } from '../email';
 import { User } from '../user';
 import { Role } from '../user/role.entity';
-import { CreateUserDto } from '../user/user.dto';
+import { CreateUserDto, LoginUserDto } from '../user/user.dto';
 
-enum NotificationType {
+export enum NotificationType {
   PASSWORD = 'password',
   REGISTER = 'register',
   REISSUE = 'reissue',
@@ -38,7 +49,6 @@ export class AuthDao {
       const message = 'Required parameters missing';
       throw new MissingParamException(message);
     }
-
     const started: number = Date.now();
     const userRepo = AppDataSource.getRepository(User);
     const roleRepo = AppDataSource.getRepository(Role);
@@ -59,12 +69,14 @@ export class AuthDao {
 
       const newUser = await userRepo.save(user);
 
+      //TODO: event
+
       newUser.password = undefined;
       logger.info(`User with email ${user.email} just registered`);
 
       await this.notifyByEmail(user, NotificationType.REGISTER);
 
-      // const logInData = await this.logUserIn(user, userAgent, started);
+      logger.info(`User with email ${user.email} registered`);
 
       return user;
     } catch (error) {
@@ -73,18 +85,72 @@ export class AuthDao {
     }
   };
 
+  public login = async (loginData: LoginUserDto, userAgent: object) => {
+    if (!userAgent || !loginData) {
+      const message = 'Required parameters missing';
+      throw new MissingParamException(message);
+    }
+
+    const started: number = Date.now();
+    const userRepo = AppDataSource.getRepository(User);
+
+    const user = await userRepo.findOne({
+      where: { email: loginData.email },
+      relations: ['roles'],
+    });
+    if (!user) throw new WrongCredentialsException();
+
+    const isPasswordmatch = await verifyPassword(
+      loginData.password,
+      user.password || ''
+    );
+    if (!isPasswordmatch) throw new WrongCredentialsException();
+
+    return await this.logUserIn(user, userAgent, started);
+  };
+
   private logUserIn = async (
     user: User,
     userAgent: object,
     started: number
   ) => {
-    const jwtS = await createAuthJwts({ id: user.user_id }, userAgent);
+    const authJwtS = await createAuthJwts(
+      { user_id: user.user_id, email: user.email, type: TokenTypes.LOGIN },
+      userAgent
+    );
 
     //TODO: event
 
     logger.info(`User with email ${user.email} just logged in`);
 
-    return { user, jwtS };
+    delete user.password;
+
+    return { user, authJwtS };
+  };
+
+  public logout = async (
+    user: User,
+    access_token: string,
+    refresh_token: string
+  ) => {
+    logger.info({ user, access_token, refresh_token });
+    if (!user || !access_token || !refresh_token) {
+      const message = 'Required parameters missing';
+      throw new MissingParamException(message);
+    }
+
+    const started: number = Date.now();
+    const isOwnerOrMember: boolean = false;
+    //TODO: permission check
+    await addSetCache('TOKEN_DENY_LIST', access_token);
+    const success = await deleteHashCache(
+      'AUTH_REFRESH_KEY',
+      user.user_id,
+      refresh_token
+    );
+
+    logger.info(`User with email ${user.email} logout`);
+    return success;
   };
 
   private notifyByEmail = async (
@@ -99,13 +165,13 @@ export class AuthDao {
     switch (type) {
       case NotificationType.REGISTER:
       default:
-        emailToken = await createEmailJwt(user.email, '6h');
+        emailToken = await createEmailJwt(user.email, '1h');
         emailSubject = 'My Travel: email confirmation required';
         emailBody = `Click this link to confirm your email address with \
-                      us: ${WEB_URL}/verify/${emailToken}`;
+                      us: ${WEB_URL}/verifyEmail/${emailToken}`;
     }
 
-    await storeTokenInCache(emailToken, {
+    await addHashCache('AUTH_EMAIL_KEY', emailToken, {
       vendor: undefined,
       model: undefined,
       type: undefined,
@@ -119,11 +185,13 @@ export class AuthDao {
     });
 
     logger.info(emailToken);
-
-    // await storeTokenInCache()
   };
 
-  private verifyToken = async (token: string, userAgent: object) => {
+  public verifyToken = async (
+    token: string,
+    secret: string,
+    userAgent: object
+  ) => {
     if (!userAgent || !token) {
       const message = 'Required parameters missing';
       throw new MissingParamException(message);
@@ -132,5 +200,45 @@ export class AuthDao {
     const started = Date.now();
     const userRepo = AppDataSource.getRepository(User);
     const roleRepo = AppDataSource.getRepository(Role);
+
+    if (await isInSetCache('TOKEN_DENY_LIST', token))
+      throw new WrongAuthTokenException();
+
+    try {
+      const decodedJwt = await verifyJwt<IJwtPayload>(token, secret);
+      if (!decodedJwt) throw new WrongAuthTokenException();
+
+      const foundUser = await userRepo.findOne({
+        where: { email: decodedJwt.email },
+      });
+      if (!foundUser) throw new RecordNotFoundException(decodedJwt.email);
+
+      switch (decodedJwt.type) {
+        case TokenTypes.REGISTER:
+          const userRole = roleRepo.create({ role_id: 'user' });
+          const user = await userRepo.save({
+            ...foundUser,
+            roles: [userRole],
+          });
+          break;
+        default:
+          throw new NotImplementedException(decodedJwt.type);
+      }
+
+      await addSetCache('TOKEN_DENY_LIST', token);
+      await deleteHashCache('AUTH_EMAIL_KEY', token);
+
+      return await this.logUserIn(foundUser, userAgent, started);
+    } catch (error) {
+      //TODO: check token etc
+      // const err = new AppError(error);
+      logger.error(error);
+      throw new AuthTokenExpiredException();
+
+      // if (err.message) {
+      //   logger.error(`User try to verify expired token ${token}`);
+      //   throw new AuthTokenExpiredException();
+      // }
+    }
   };
 }
