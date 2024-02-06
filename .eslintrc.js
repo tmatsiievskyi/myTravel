@@ -20,7 +20,7 @@ module.exports = {
     '@typescript-eslint/no-empty-interface': 0,
     quotes: ['error', 'single'],
     'no-duplicate-imports': 'error',
-
+    'no-array-reduce': 'off',
     // Import
     'import/order': [
       'error',

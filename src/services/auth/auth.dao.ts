@@ -11,7 +11,13 @@ import {
   WrongCredentialsException,
 } from '../../exceptions';
 import { AuthTokenExpiredException } from '../../exceptions/AuthTokenExpired.exception';
-import { IDao, IJwtPayload } from '../../interfaces';
+import {
+  ActivityType,
+  IDao,
+  IJwtPayload,
+  NotificationType,
+  ResourceType,
+} from '../../interfaces';
 import {
   AppError,
   TokenTypes,
@@ -20,6 +26,7 @@ import {
   createAuthJwts,
   createEmailJwt,
   deleteHashCache,
+  getPermission,
   hashPassword,
   isInSetCache,
   verifyJwt,
@@ -30,14 +37,8 @@ import { User } from '../user';
 import { Role } from '../user/role.entity';
 import { CreateUserDto, LoginUserDto } from '../user/user.dto';
 
-export enum NotificationType {
-  PASSWORD = 'password',
-  REGISTER = 'register',
-  REISSUE = 'reissue',
-}
-
 export class AuthDao {
-  private resource = 'auth';
+  private resource = ResourceType.AUTH;
   private email: Email;
 
   constructor() {
@@ -133,7 +134,6 @@ export class AuthDao {
     access_token: string,
     refresh_token: string
   ) => {
-    logger.info({ user, access_token, refresh_token });
     if (!user || !access_token || !refresh_token) {
       const message = 'Required parameters missing';
       throw new MissingParamException(message);
@@ -141,16 +141,26 @@ export class AuthDao {
 
     const started: number = Date.now();
     const isOwnerOrMember: boolean = false;
-    //TODO: permission check
-    await addSetCache('TOKEN_DENY_LIST', access_token);
-    const success = await deleteHashCache(
-      'AUTH_REFRESH_KEY',
-      user.user_id,
-      refresh_token
+    const action = ActivityType.UPDATE;
+    const permission = getPermission(
+      user,
+      isOwnerOrMember,
+      action,
+      this.resource
     );
 
+    //TODO: permission check
+    // await addSetCache('TOKEN_DENY_LIST', access_token);
+    // const success = await deleteHashCache(
+    //   'AUTH_REFRESH_KEY',
+    //   user.user_id,
+    //   refresh_token
+    // );
+
     logger.info(`User with email ${user.email} logout`);
-    return success;
+
+    return true;
+    // return success;
   };
 
   private notifyByEmail = async (

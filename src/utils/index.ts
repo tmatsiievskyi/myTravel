@@ -3,3 +3,4 @@ export * from './formatter.util';
 export * from './authentication.util';
 export * from './error.util';
 export * from './cache.util';
+export * from './authorization.util';

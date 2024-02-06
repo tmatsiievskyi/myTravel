@@ -105,7 +105,6 @@ export class AuthController implements IController {
     next: NextFunction
   ) => {
     try {
-      logger.info(req.user);
       const data = await this.authDao.logout(
         req.user,
         req.cookies.access_token,
